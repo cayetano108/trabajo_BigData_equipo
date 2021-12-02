@@ -1,0 +1,141 @@
+---
+title: "Alt + Formula 1"
+author: "Cayetano Romero Monteagudo (caromon3@alumni.uv.es)  \n\n Alejandro García Segarra (agarse4@alumni.uv.es)  \n \n Carlos García Castilla (garcas8@alumni.uv.es). \n\n Universitat de València"
+date: "Diciembre de 2021 (actualizado el `r format(Sys.time(), '%d-%m-%Y')`)"
+output:
+  html_document:
+    css: "./assets/my_css_file.css"
+    theme: readable
+    highlight: textmate 
+    toc: true
+    toc_depth: 3 
+    toc_float: 
+      collapsed: true
+      smooth_scroll: true
+    self_contained: true
+    number_sections: false
+    df_print: kable
+    code_folding: none
+    code_download: true
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r packages-setup, include = FALSE}
+library(tidyverse)
+library(klippy)  #- remotes::install_github("rlesur/klippy")
+library(knitr)
+library(rio)
+```
+
+```{r chunk-setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE, message = FALSE, warning = FALSE, 
+                      #results = "hold",
+                      cache = FALSE, cache.path = "/caches/", comment = "#>",
+                      #fig.width = 7, #fig.height= 7,   
+                      #out.width = 7, out.height = 7,
+                      collapse = TRUE,  fig.show = "hold",
+                      fig.asp = 0.628, out.width = "75%", fig.align = "center")
+knitr::opts_chunk$set(dev = "png", dev.args = list(type = "cairo-png"))
+```
+
+```{r options-setup, include = FALSE}
+options(scipen = 999) #- para quitar la notación científica
+options("yaml.eval.expr" = TRUE) 
+```
+
+
+```{r klippy, echo = FALSE}
+klippy::klippy(position = c("top", "right")) #- remotes::install_github("rlesur/klippy")
+```
+
+
+
+<hr class="linea-black">
+
+<!-- El párrafo de abajo has de dejarlo casi igual, solo HAS de SUSTITUIR "perezp44" por tu usuario de Github-->
+Trabajo elaborado para la asignatura "Programación y manejo de datos en la era del Big Data" de la Universitat de València durante el curso 2021-2022. El repo del trabajo está [aquí](https://github.com/cayetano108/trabajo_BigData_equipo){target="_blank"}. 
+
+<!-- El párrafo de abajo has de dejarlo exactamente igual, NO has de cambiar nada-->
+
+La página web de la asignatura y los trabajos de mis compañeros pueden verse [aquí](https://perezp44.github.io/intro-ds-21-22-web/07-trabajos.html){target="_blank"}.
+
+<hr class="linea-red">
+
+
+```{r, eval = TRUE, echo = TRUE}
+
+#---PREPARACION DE LOS DATOS
+
+pilotos <- rio::import(file = "./datosf1/drivers.csv")
+resultados <- rio::import(file = "./datosf1/results.csv")
+
+
+#----------------------------------------------------------------------------------
+#numero de carreras que ha corrido cada piloto
+n_carreras <- resultados %>% group_by(driverId) %>% mutate(n_carreras = sum(n())) %>% distinct(n_carreras)
+n_carreras_nom <- full_join(n_carreras, pilotos, c ("driverId" = "driverId")) %>% select(driverId, driverRef, n_carreras) 
+#--------------------------------------------------------------------------------
+
+#------------------------------------------------------------------------------
+# numero de victorias por piloto
+mas_victorias <- resultados %>% filter(position == "1") %>% group_by(driverId) %>% mutate(n_victorias = sum(n())) %>% distinct(n_victorias) 
+
+#aqui fusiono con el df de pilotos para que aparezca el nombre y no sólo el ID del piloto en cuestion
+victorias_con_nombre <- full_join(mas_victorias, pilotos, c ("driverId" = "driverId")) %>% select(driverId, driverRef, n_victorias) 
+#-------------------------------------------------------------------------------------
+
+#--------------------------------------------------------------------------------------
+#pilotos españoles
+#pilotos_esp <- pilotos %>% filter(nationality == "Spanish") %>% select(driverId, driverRef, nationality) 
+
+
+#victorias de pilotos españoles
+#mas_victorias_esp <- full_join(mas_victorias, pilotos, c ("driverId" = "driverId")) %>% filter(nationality == "Spanish") %>%  select(driverId, driverRef, n_victorias, nationality) 
+#-------------------------------------------------------------------------------------------
+
+
+#datos de escuderias pa quien quiera hacer algo
+escuderias <- rio::import(file = "./datosf1/constructors.csv")
+escuderias <- rio::import(file = "./datosf1/constructor_standings.csv")
+result_escuderias <- rio::import(file = "./datosf1/constructor_results.csv")
+#escuderiasesp <- escuderias %>% filter(nationality == "Spanish") #escuderias españolas
+#----------------------------------------------------------------------------------------
+
+
+circuitos <- rio::import(file = "./datosf1/circuits.csv")
+tiempos <- rio::import(file = "./datosf1/lap_times.csv")
+carreras <- rio::import(file = "./datosf1/races.csv")
+
+tiemposvuelta_x_carrera <- full_join(carreras, tiempos, c ("raceId" = "raceId"))
+tiempos_piloto <- full_join(tiemposvuelta_x_carrera, pilotos, c ("driverId" = "driverId")) %>% select(raceId, name, driverId, driverRef, time.y, lap,position, year)
+
+record_de_circuito <- tiempos_piloto %>% group_by(name) %>% slice_min(time.y, n=1)
+
+
+```
+
+# [1. Introducción]{.verdecito}
+
+Tenemos pensado elaborar el trabajo en equipo sobre Formula 1, una competición de la que somos muy aficionados, entre otras cosas por la importancia que tienen los datos a la hora de formalizar las estrategias en la competición. 
+
+## **THE PLAN**
+
+```{r, eval=TRUE, echo=FALSE}
+library(meme)
+my_foto <- "https://e00-elmundo.uecdn.es/assets/multimedia/imagenes/2017/05/12/14945899346306.jpg"
+meme(my_foto, "MUY TRANQUILOS", "SE VIENE TRABAJAZO", size = 2 , color = "blue", vjust = 1.05)
+
+```
+
+
+
+# 2. Datos
+
+Hemos encontrado en [kaggle](https://www.kaggle.com/) bastantes conjuntos de datos con los que poder trabajar, pero especialmente [este](https://www.kaggle.com/rohanrao/formula-1-world-championship-1950-2020), que posee gran variedad de datos en lo referente a pilotos, resultados, circuitos, tiempos, etc... Consideramos que para empezar a trabajar será suficiente, y en función de como vayamos dirigiendo el trabajo, buscaremos diferentes conjunto de datos con los que apoyarnos.
+
+# 3. Trabajos en los que nos vamos a basar
+
+Con los datos que hemos encontrado, existen una serie de códigos que ya trabajan con estos datos, especialmente [este](https://www.kaggle.com/ekrembayar/formula-1-70th-anniversary), que ha conseguido realizar análisis con este conjunto de datos y varias ilustraciones muy llamativas, por lo que podremos tomarlo como referencia durante el inicio del trabajo
+
+> "Nadie es más rápido que el nano"
